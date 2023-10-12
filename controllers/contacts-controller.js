@@ -1,56 +1,139 @@
-const contactsService = require("../models/index");
-const HttpError = require("../helpers/HttpError");
+const Joi = require("joi");
 
-const ctrlWrapper = require("../decorators/ctrlWrapper");
+const Contact = require("../models/contact");
 
-const getAll = async (req, res) => {
-  const contacts = await contactsService.listContacts();
-  res.json(contacts);
-};
+const { HttpErrors } = require("../helpers");
 
-const getById = async (req, res) => {
-  const { id } = req.params;
-  const contact = await contactsService.getContactById(id);
+// const addSchema = Joi.object({
+//   name: Joi.string().required(),
+//   phone: Joi.number().required(),
+//   email: Joi.string().required(),
+//   favorite: Joi.boolean().required(),
+// });
 
-  if (!contact) {
-    throw HttpError(404, `Contact with ${id} is not found`);
+
+const addSchema = Joi.object({
+  name: Joi.string().required().messages({
+    "any.required": `"name" don't be upseeet`,
+    "string.empty": `"name" cannot be an empty field`,
+  }),
+  phone: Joi.number().required().messages({
+    "any.required": `"phone" don't be upseeet`,
+    "string.empty": `"phone" cannot be an empty field`,
+  }),
+  email: Joi.string().required().messages({
+    "any.required": `"email" don't be upseeet`,
+    "string.empty": `"email" cannot be an empty field`,
+  }),
+  favorite: Joi.boolean().required().messages({
+    "any.required": `"favorite" don't be upseeet`,
+    "string.empty": `"favorite" cannot be an empty field`,
+  }),
+});
+
+
+const favoriteSchema = Joi.object({
+  favorite: Joi.boolean().required(),
+})
+
+const getAllReq = async (req, res, next) => {
+  try {
+    const all = await Contact.find();
+    res.json(all);
+  } catch (error) {
+    next(error);
   }
-  res.status(200).json(contact);
 };
 
-const add = async (req, res) => {
-  console.log("Inside add function", req.body);
+const getByIdReq = async (req, res, next) => {
+  try {
+    const { contactId } = req.params;
+    const byId = await Contact.findById(contactId);
 
-  const { name, email, phone } = req.body;
+    if (!byId) {
+      throw HttpErrors(404, "Not found");
+    }
 
-  const newContact = await contactsService.addContact({ name, email, phone });
-  res.status(201).json(newContact);
+    res.json(byId);
+  } catch (error) {
+    next(error);
+  }
 };
 
-const deleteById = async (req, res) => {
-  const { id } = req.params;
-  const deletedContact = await contactsService.removeContact(id);
-  if (!deletedContact) {
-    throw HttpError(404, `Contact with ${id} is not found`);
+const postReq = async (req, res, next) => {
+  try {
+    const { error } = addSchema.validate(req.body);
+    if (error) {
+      throw HttpErrors(400, error.message);
+    }
+    const add = await Contact.create(req.body);
+    res.status(201).json(add);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const deleteReq = async (req, res, next) => {
+    try {
+      const { contactId } = req.params;
+      const remove = await Contact.findByIdAndRemove(contactId);
+
+      if (!remove) {
+        throw HttpErrors(400, "Not found");
+      }
+
+      res.json({
+        message: "Delete success",
+      });
+    } catch (error) {
+      next(error);
+    }
   }
 
-  res.status(200).json({ data: deletedContact });
+const putReq = async (req, res, next) => {
+  try {
+    const { error } = addSchema.validate(req.body);
+    if (error) {
+      throw HttpErrors(400, error.message);
+    }
+    const { contactId } = req.params;
+    const result = await Contact.findByIdAndUpdate(contactId, req.body, {
+      new: true,
+    });
+
+    if (!result) {
+      throw HttpErrors(404, "Not found");
+    }
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
 };
 
-const updateById = async (req, res) => {
-  const { id } = req.params;
-  const { body } = req;
-  const updatedContacts = await contactsService.updateContact(id, body);
-  if (!updatedContacts) {
-    throw HttpError(404, `Contact with ${id} is not found`);
+const patchReq = async (req, res, next) => {
+  try {
+    const { error } = favoriteSchema.validate(req.body);
+    if (error) {
+      throw HttpErrors(400, error.message);
+    }
+    const { contactId } = req.params;
+    const result = await Contact.findByIdAndUpdate(contactId, req.body, {
+      new: true,
+    });
+    if (!result) {
+      throw HttpErrors(404, "Not found");
+    }
+    res.json(result);
+  } catch (error) {
+    next(error);
   }
-  res.status(200).json(updatedContacts);
 };
 
 module.exports = {
-  getAll: ctrlWrapper(getAll),
-  getById: ctrlWrapper(getById),
-  add: ctrlWrapper(add),
-  deleteById: ctrlWrapper(deleteById),
-  updateById: ctrlWrapper(updateById),
+  getAllReq,
+  getByIdReq,
+  postReq,
+  deleteReq,
+  putReq,
+  patchReq,
 };
