@@ -4,41 +4,27 @@ const Contact = require("../models/contact");
 
 const { HttpErrors } = require("../helpers");
 
-// const addSchema = Joi.object({
-//   name: Joi.string().required(),
-//   phone: Joi.number().required(),
-//   email: Joi.string().required(),
-//   favorite: Joi.boolean().required(),
-// });
-
-
 const addSchema = Joi.object({
-  name: Joi.string().required().messages({
-    "any.required": `"name" don't be upseeet`,
-    "string.empty": `"name" cannot be an empty field`,
-  }),
-  phone: Joi.number().required().messages({
-    "any.required": `"phone" don't be upseeet`,
-    "string.empty": `"phone" cannot be an empty field`,
-  }),
-  email: Joi.string().required().messages({
-    "any.required": `"email" don't be upseeet`,
-    "string.empty": `"email" cannot be an empty field`,
-  }),
-  favorite: Joi.boolean().required().messages({
-    "any.required": `"favorite" don't be upseeet`,
-    "string.empty": `"favorite" cannot be an empty field`,
-  }),
+  name: Joi.string().required(),
+  phone: Joi.number().required(),
+  email: Joi.string().required(),
+  favorite: Joi.boolean()
 });
-
 
 const favoriteSchema = Joi.object({
   favorite: Joi.boolean().required(),
-})
+});
 
+//
 const getAllReq = async (req, res, next) => {
   try {
-    const all = await Contact.find();
+    const { _id: owner } = req.user;
+    const { page = 1, limit = 10 } = req.query;
+    const skip = (page - 1) * limit;
+    const all = await Contact.find({ owner }, "-createdAt -updatedAT", {
+      skip,
+      limit,
+    }).populate("owner", "subscription email");
     res.json(all);
   } catch (error) {
     next(error);
@@ -53,7 +39,6 @@ const getByIdReq = async (req, res, next) => {
     if (!byId) {
       throw HttpErrors(404, "Not found");
     }
-
     res.json(byId);
   } catch (error) {
     next(error);
@@ -66,7 +51,8 @@ const postReq = async (req, res, next) => {
     if (error) {
       throw HttpErrors(400, error.message);
     }
-    const add = await Contact.create(req.body);
+    const { _id: owner } = req.user;
+    const add = await Contact.create({ ...req.body, owner });
     res.status(201).json(add);
   } catch (error) {
     next(error);
@@ -74,21 +60,21 @@ const postReq = async (req, res, next) => {
 };
 
 const deleteReq = async (req, res, next) => {
-    try {
-      const { contactId } = req.params;
-      const remove = await Contact.findByIdAndRemove(contactId);
+  try {
+    const { contactId } = req.params;
+    const remove = await Contact.findByIdAndRemove(contactId);
 
-      if (!remove) {
-        throw HttpErrors(400, "Not found");
-      }
-
-      res.json({
-        message: "Delete success",
-      });
-    } catch (error) {
-      next(error);
+    if (!remove) {
+      throw HttpErrors(400, "Not found");
     }
+
+    res.json({
+      message: "Delete success",
+    });
+  } catch (error) {
+    next(error);
   }
+};
 
 const putReq = async (req, res, next) => {
   try {
@@ -100,7 +86,6 @@ const putReq = async (req, res, next) => {
     const result = await Contact.findByIdAndUpdate(contactId, req.body, {
       new: true,
     });
-
     if (!result) {
       throw HttpErrors(404, "Not found");
     }
@@ -110,7 +95,7 @@ const putReq = async (req, res, next) => {
   }
 };
 
-const patchReq = async (req, res, next) => {
+const patchReqFavorite = async (req, res, next) => {
   try {
     const { error } = favoriteSchema.validate(req.body);
     if (error) {
@@ -135,5 +120,5 @@ module.exports = {
   postReq,
   deleteReq,
   putReq,
-  patchReq,
+  patchReqFavorite,
 };
