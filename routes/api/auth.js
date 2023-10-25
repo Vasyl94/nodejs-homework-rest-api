@@ -8,6 +8,10 @@ const {schemas} = require("../../models/user")
 
 const ctrlAuth = require("../../controllers/auth")
 
+router.get("/verify", validateBody(schemas.verifyShema), ctrlAuth.resetVerify)
+
+router.get("/verify/:verificationToken", ctrlAuth.verify)
+
 router.post("/register" , validateBody(schemas.registerShema), ctrlAuth.register);
 
 router.post("/login", validateBody(schemas.loginShema), ctrlAuth.login)
